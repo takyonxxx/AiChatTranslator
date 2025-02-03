@@ -1,0 +1,27 @@
+<RCC>
+    <qresource prefix="/">
+        <file>icons/ai.ico</file>
+        <file>icons/ai.png</file>
+        <file>icons/appstore.png</file>
+        <file>icons/playstore.png</file>
+        <file>ios/Assets.xcassets/AppIcon.appiconset/1024.png</file>
+        <file>ios/Assets.xcassets/AppIcon.appiconset/114.png</file>
+        <file>ios/Assets.xcassets/AppIcon.appiconset/120.png</file>
+        <file>ios/Assets.xcassets/AppIcon.appiconset/128.png</file>
+        <file>ios/Assets.xcassets/AppIcon.appiconset/16.png</file>
+        <file>ios/Assets.xcassets/AppIcon.appiconset/180.png</file>
+        <file>ios/Assets.xcassets/AppIcon.appiconset/256.png</file>
+        <file>ios/Assets.xcassets/AppIcon.appiconset/29.png</file>
+        <file>ios/Assets.xcassets/AppIcon.appiconset/32.png</file>
+        <file>ios/Assets.xcassets/AppIcon.appiconset/40.png</file>
+        <file>ios/Assets.xcassets/AppIcon.appiconset/512.png</file>
+        <file>ios/Assets.xcassets/AppIcon.appiconset/57.png</file>
+        <file>ios/Assets.xcassets/AppIcon.appiconset/58.png</file>
+        <file>ios/Assets.xcassets/AppIcon.appiconset/60.png</file>
+        <file>ios/Assets.xcassets/AppIcon.appiconset/64.png</file>
+        <file>ios/Assets.xcassets/AppIcon.appiconset/80.png</file>
+        <file>ios/Assets.xcassets/AppIcon.appiconset/87.png</file>
+        <file>ios/Assets.xcassets/AppIcon.appiconset/Contents.json</file>
+        <file>ios/Info.plist</file>
+    </qresource>
+</RCC>
