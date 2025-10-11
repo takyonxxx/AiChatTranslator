@@ -1,2 +1,2 @@
-# SpeechTranslator
- SpeechTranslator
+# AiChatTranslator
+ AiChatTranslator
