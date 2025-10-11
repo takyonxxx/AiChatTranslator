@@ -60,12 +60,14 @@ unix:!mac:!android {
 # Header files
 HEADERS = \
     audiolevel.h \
+    claudeai.h \
     constants.h \
     mainwindow.h \
     translateclient.h
 
 # Source files
 SOURCES = \
+    claudeai.cpp \
     main.cpp \
     audiolevel.cpp \
     mainwindow.cpp

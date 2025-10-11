@@ -24,6 +24,7 @@
 #include <QTextToSpeech>
 #include <QTextDocument>
 #include <QUrl>
+#include "claudeai.h"
 
 #ifdef __APPLE__
 #include <AudioToolbox/AudioToolbox.h>
@@ -74,13 +75,11 @@ private slots:
     void toggleLanguage();
     void speechVoice();
     void translateText(QString, QString);
-    void getFromAi(QString);
     void speakWithGoogleTTS(const QString &text, const QString &languageCode);
     void playGoogleTTSAudio(const QString &filePath);
 
     void localeChanged(const QLocale &locale);
     void voiceSelected(int index);
-    void languageSelected(int language);
 
     void onStateChanged(QMediaRecorder::RecorderState);
     void onSpeechStateChanged(QTextToSpeech::State state);
@@ -100,7 +99,6 @@ private slots:
     void httpGoogleTtsFinished();
     void httpSpeechReadyRead();
     void httpTranslateReadyRead();
-    void httpAiReadyRead();
     void httpGoogleTtsReadyRead();
     void handleAudioStateChanged(QAudio::State);
     void requestMicrophonePermission();
@@ -114,6 +112,13 @@ private slots:
     void on_speechVolumeSlider_valueChanged(int value);
     void on_voxSensivitySlider_valueChanged(int value);
     void on_languageButton_clicked();
+
+    void onSilenceDetected();
+
+    void onClaudeResponse(const QString &response);
+    void onClaudeError(const QString &error);
+
+    void on_enableClaude_toggled(bool checked);
 
 private:
 #ifdef __APPLE__
@@ -129,6 +134,10 @@ private:
     void clearAudioLevels();
     void setSpeechEngine();
     QMediaFormat selectedMediaFormat() const;
+
+    ClaudeAI *m_claudeAI = nullptr;
+    int m_aIMaxWords = 20;
+    bool aiMode = false;
 
     QTextToSpeech *m_speech = nullptr;
     QVector<QVoice> m_voices;
@@ -157,10 +166,20 @@ private:
     bool m_outputLocationSet = false;
     bool m_qlearning = false;
     bool m_translate = false;
-    float m_vox_sensitivity = 0.2;
+    float m_vox_sensitivity = 0.25;
 
-    const int maxDuration = 5000;
-    const int minDuration = 1000;
+    QDateTime m_lastVoiceDetectedTime;  // Son ses algılama zamanı
+    QTimer *m_silenceTimer = nullptr;   // Sessizlik timer'ı
+    bool m_voiceDetectedInCurrentRecording = false;
+
+    const int maxDuration = 30000;  // ✅ 5000'den 10000'e (max 10 saniye)
+    const int minDuration = 1500;
+    const int minRecordDuration = 1500;  // ✅ 1500'den 500'e düşür
+    const int SILENCE_TIMEOUT_MS = 2500;  // ✅ 1 saniye sessizlik
+    const int SPEECH_COOLDOWN_MS = 1500;
+    const int VOX_DEBOUNCE_MS = 500;
+    QDateTime m_lastSpeechEndTime;
+    QDateTime m_lastVoxTriggerTime;
     const unsigned sampleRate = 16000;
     const unsigned channelCount = 1;
     int recordDuration = 0;
@@ -178,10 +197,7 @@ private:
 
     const QString fileName = "record";
     QString ext = "";
-    QFile file;
-
-    QDateTime m_lastSpeechEndTime;
-    const int SPEECH_COOLDOWN_MS = 1000;
+    QFile file;   
 
     Ui::MainWindow *ui = nullptr;
 };
