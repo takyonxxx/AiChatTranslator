@@ -24,11 +24,10 @@
 #include <QTextToSpeech>
 #include <QTextDocument>
 #include <QUrl>
-// #include "translateclient.h"
+
 #ifdef __APPLE__
 #include <AudioToolbox/AudioToolbox.h>
 #endif
-
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -73,10 +72,11 @@ public slots:
 private slots:
     void toggleRecord();
     void toggleLanguage();
-    void setTTSLanguage(QLocale::Language language, QLocale::Country country);
     void speechVoice();
     void translateText(QString, QString);
     void getFromAi(QString);
+    void speakWithGoogleTTS(const QString &text, const QString &languageCode);
+    void playGoogleTTSAudio(const QString &filePath);
 
     void localeChanged(const QLocale &locale);
     void voiceSelected(int index);
@@ -84,6 +84,7 @@ private slots:
 
     void onStateChanged(QMediaRecorder::RecorderState);
     void onSpeechStateChanged(QTextToSpeech::State state);
+    void onTtsPlayerStateChanged(QMediaPlayer::PlaybackState state);
     void updateProgress(qint64 pos);
     void micBufferReady();
     void displayErrorMessage();
@@ -96,9 +97,11 @@ private slots:
     void httpSpeechFinished();
     void httpTranslateFinished();
     void httpAiFinished();
+    void httpGoogleTtsFinished();
     void httpSpeechReadyRead();
     void httpTranslateReadyRead();
     void httpAiReadyRead();
+    void httpGoogleTtsReadyRead();
     void handleAudioStateChanged(QAudio::State);
     void requestMicrophonePermission();
     void initializeAi();
@@ -145,39 +148,42 @@ private:
     QList<AudioLevel*> m_audioLevels;
     QAudioFormat audio_format;
 
+    QMediaPlayer *m_ttsPlayer = nullptr;
+    QAudioOutput *m_ttsAudioOutput = nullptr;
+
     bool m_recording = false;
     bool m_speaking = false;
     bool m_record_started = false;
     bool m_outputLocationSet = false;
     bool m_qlearning = false;
     bool m_translate = false;
-    float m_vox_sensitivity = 0.3;
+    float m_vox_sensitivity = 0.2;
 
-    const int maxDuration = 5000; // maximum recording duration allowed
-    const int minDuration = 1000; // minimium recording duration allowed
+    const int maxDuration = 5000;
+    const int minDuration = 1000;
     const unsigned sampleRate = 16000;
     const unsigned channelCount = 1;
-    int recordDuration = 0; // recording duration in miliseconds
+    int recordDuration = 0;
 
     QNetworkAccessManager *qnam;
     QUrl urlSpeech;
     QUrl urlSearch;
     QUrl urlLanguageTranslate;
     QUrl urlAi;
+    QUrl urlGoogleTts;
     QScopedPointer<QNetworkReply, QScopedPointerDeleteLater> speech_reply;
     QScopedPointer<QNetworkReply, QScopedPointerDeleteLater> translate_reply;
     QScopedPointer<QNetworkReply, QScopedPointerDeleteLater> ai_reply;
-    //    TranslateClient *translateClient;
+    QScopedPointer<QNetworkReply, QScopedPointerDeleteLater> google_tts_reply;
 
     const QString fileName = "record";
     QString ext = "";
     QFile file;
 
     QDateTime m_lastSpeechEndTime;
-    const int SPEECH_COOLDOWN_MS = 1500;  // 1.5 seconds cooldown after speech
+    const int SPEECH_COOLDOWN_MS = 1000;
 
     Ui::MainWindow *ui = nullptr;
-
 };
 
 #endif // MAINWINDOW_H
