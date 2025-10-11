@@ -67,7 +67,7 @@ public:
     }
 
 public slots:
-    void processBuffer(const QAudioBuffer&);    
+    void processBuffer(const QAudioBuffer&);
     QList<qreal> getBufferLevels(const QAudioBuffer&);
 
 private slots:
@@ -133,7 +133,7 @@ private:
     QString langpair;
     QString languageCode;
 
-    QMediaCaptureSession m_captureSession;    
+    QMediaCaptureSession m_captureSession;
     QMediaRecorder *m_audioRecorder = nullptr;
     QAudioSource *m_audioInputSource = nullptr;
     QAudioSink *m_audioOutput;
@@ -146,13 +146,13 @@ private:
 
     bool m_recording = false;
     bool m_speaking = false;
-    bool m_record_started = false;   
+    bool m_record_started = false;
     bool m_outputLocationSet = false;
     bool m_qlearning = false;
     bool m_translate = false;
     float m_vox_sensitivity = 0.3;
 
-    const int maxDuration = 3000; // maximum recording duration allowed
+    const int maxDuration = 5000; // maximum recording duration allowed
     const int minDuration = 1000; // minimium recording duration allowed
     const unsigned sampleRate = 16000;
     const unsigned channelCount = 1;
@@ -166,14 +166,14 @@ private:
     QScopedPointer<QNetworkReply, QScopedPointerDeleteLater> speech_reply;
     QScopedPointer<QNetworkReply, QScopedPointerDeleteLater> translate_reply;
     QScopedPointer<QNetworkReply, QScopedPointerDeleteLater> ai_reply;
-//    TranslateClient *translateClient;
+    //    TranslateClient *translateClient;
 
     const QString fileName = "record";
     QString ext = "";
     QFile file;
 
     QDateTime m_lastSpeechEndTime;
-    const int SPEECH_COOLDOWN_MS = 1000;
+    const int SPEECH_COOLDOWN_MS = 1500;  // 1.5 seconds cooldown after speech
 
     Ui::SpeechTranslate *ui = nullptr;
 

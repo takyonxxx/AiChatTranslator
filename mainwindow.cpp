@@ -60,7 +60,6 @@ void MainWindow::initializeAi()
     QSize screenSize = qApp->primaryScreen()->availableSize();
     int targetWidth = screenSize.width() * 0.8;
     int targetHeight = screenSize.height() * 0.8;
-    // Set the fixed size or adjust the size policy as needed
     this->setFixedSize(targetWidth, targetHeight);
 #endif
 
@@ -104,10 +103,83 @@ void MainWindow::initializeAi()
     }
 
     m_audioInput = new QAudioInput(this);
-    m_speech = new QTextToSpeech(this);
-    langpair = "tr|en";
-    languageCode = "TR";
 
+    // ✅ 1. TTS'i oluştur
+    qDebug() << "=== TTS Initialization Start ===";
+
+#ifdef Q_OS_WIN
+    // ✅ Windows'ta "sapi" engine'ini kullan (daha güvenilir)
+    QStringList engines = QTextToSpeech::availableEngines();
+    qDebug() << "Available TTS Engines:" << engines;
+
+    QString preferredEngine = "sapi";  // Windows için SAPI
+    if (engines.contains(preferredEngine)) {
+        m_speech = new QTextToSpeech(preferredEngine, this);
+        qDebug() << "Using engine:" << preferredEngine;
+    } else {
+        m_speech = new QTextToSpeech(this);
+        qDebug() << "Using default engine";
+    }
+#else
+    m_speech = new QTextToSpeech(this);
+#endif
+
+    // ✅ 2. State change signal'ını HEMEN bağla
+    connect(m_speech, &QTextToSpeech::stateChanged, this, &MainWindow::onSpeechStateChanged);
+
+    qDebug() << "TTS Initial State:" << m_speech->state();
+
+    // ✅ 3. Locale ve Voice ayarlarını ÖNCE yap
+    langpair = "tr|en";
+    languageCode = "tr-TR";
+
+    // ✅ 4. Available locales'i kontrol et
+    QVector<QLocale> availableLocales = m_speech->availableLocales();
+    qDebug() << "Available TTS Locales:" << availableLocales.size();
+
+    // ✅ 5. English locale'i bul ve ayarla (tr|en için output English)
+    QLocale englishLocale;
+    for (const QLocale &loc : availableLocales) {
+        qDebug() << "  -" << loc.name() << QLocale::languageToString(loc.language());
+        if (loc.language() == QLocale::English && loc.territory() == QLocale::UnitedStates) {
+            englishLocale = loc;
+            qDebug() << "  -> Found English (US) locale";
+        }
+    }
+
+    // ✅ 6. Locale'i ayarla
+    if (englishLocale.language() == QLocale::English) {
+        m_speech->setLocale(englishLocale);
+        qDebug() << "Locale set to:" << englishLocale.name();
+    } else {
+        qDebug() << "WARNING: English locale not found, using default";
+    }
+
+    // ✅ 7. Voice'ları kontrol et ve ayarla
+    QVector<QVoice> voices = m_speech->availableVoices();
+    qDebug() << "Available voices:" << voices.size();
+    for (int i = 0; i < voices.size(); i++) {
+        qDebug() << "  Voice" << i << ":" << voices[i].name()
+                 << "-" << QVoice::genderName(voices[i].gender());
+    }
+
+    // ✅ 8. İlk voice'u seç (veya female varsa onu)
+    if (!voices.isEmpty()) {
+        QVoice selectedVoice = voices[0];
+        for (const QVoice &voice : voices) {
+            if (QVoice::genderName(voice.gender()).contains("Female")) {
+                selectedVoice = voice;
+                qDebug() << "Selected female voice:" << voice.name();
+                break;
+            }
+        }
+        m_speech->setVoice(selectedVoice);
+    }
+
+    // ✅ 9. TTS parametrelerini ayarla
+    m_speech->setPitch(0.0);
+    m_speech->setRate(0.0);
+    m_speech->setVolume(1.0);
 
     //audio devices
     for (auto device: QMediaDevices::audioInputs()) {
@@ -130,16 +202,17 @@ void MainWindow::initializeAi()
 
     //http request
     qnam = new QNetworkAccessManager(this);
-    //    translateClient = new TranslateClient(this);
 
     this->urlSpeech.setUrl(speechBaseApi);
     this->urlLanguageTranslate.setUrl(translateUrl);
     this->urlAi.setUrl(aiUrl);
 
     setSpeechEngine();
+
     inputDeviceChanged(0);
     outputDeviceChanged(0);
-    m_speech->say("Lütfen, kayıt düğmesine basınız");
+
+    m_lastSpeechEndTime = QDateTime::currentDateTime().addSecs(-10);
 }
 
 void MainWindow::requestMicrophonePermission()
@@ -164,7 +237,6 @@ void MainWindow::requestMicrophonePermission()
                         initializeAi();
                     } else {
                         qDebug() << "Microphone permission denied";
-                        // Handle the case where permission is denied
                         QMetaObject::invokeMethod(this, "close", Qt::QueuedConnection);
                     }
                     requestWatcher->deleteLater();
@@ -180,7 +252,6 @@ void MainWindow::requestMicrophonePermission()
 
         checkWatcher->setFuture(checkFuture);
     } else {
-        // For Android versions below 6.0, permission is granted at install time
         initializeAi();
     }
 #endif
@@ -196,65 +267,61 @@ void MainWindow::handleAudioStateChanged(QAudio::State newState)
         break;
 
     case QAudio::StoppedState:
-        // Stopped for other reasons
         if (m_audioOutput->error() != QAudio::NoError) {
             // Error handling
         }
         break;
 
     default:
-        // ... other cases as appropriate
         break;
     }
 }
 
 void MainWindow::setOutputFile()
 {
-    // Get the writable location for AppLocalData
     QString filePath = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
     QDir folderDir(filePath);
-    // List all files in the folder
     QStringList files = folderDir.entryList(QDir::Files);
-    // Remove each file
     for (const QString &file : files) {
         QString file_Path = filePath + QDir::separator() + file;
         QFile::remove(file_Path);
     }
 
-    // Set the output location for the audio recorder
     m_audioRecorder->setOutputLocation(QUrl::fromLocalFile(filePath.remove("file://") + "/record"));
     m_outputLocationSet = true;
 }
 
 void MainWindow::setSpeechEngine()
 {
-    m_speech->setPitch(0);
+    // ✅ Sadece UI componentlerini doldur, TTS zaten ayarlandı
     connect(m_speech, &QTextToSpeech::localeChanged, this, &MainWindow::localeChanged);
-    connect(m_speech, &QTextToSpeech::stateChanged, this, &MainWindow::onSpeechStateChanged);
+    // stateChanged zaten bağlı, tekrar bağlama!
     connect(ui->language, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &MainWindow::languageSelected);
+
     ui->language->clear();
-    // Populate the languages combobox before connecting its signal.
+
     const QVector<QLocale> locales = m_speech->availableLocales();
     QLocale current = m_speech->locale();
-    int counter=0;
+    int counter = 0;
+
     for (const QLocale &locale : locales) {
         QString name(QString("%1 (%2)")
                          .arg(QLocale::languageToString(locale.language()))
                          .arg(QLocale::territoryToString(locale.territory())));
         QVariant localeVariant(locale);
         ui->language->addItem(name, localeVariant);
+
         if (langpair == "tr|en" && name.contains("English (United States)"))
         {
-            current = locale;
             m_current_language_index = counter;
         }
         else if (langpair == "en|tr" && name.contains("Turkish"))
         {
-            current = locale;
             m_current_language_index = counter;
         }
         counter++;
     }
+
     ui->language->setCurrentIndex(m_current_language_index);
 }
 
@@ -308,12 +375,11 @@ void MainWindow::sslErrors(const QList<QSslError> &errors)
     if (QMessageBox::warning(this, tr("SSL Errors"),
                              tr("One or more SSL errors has occurred:\n%1").arg(errorString),
                              QMessageBox::Ignore | QMessageBox::Abort) == QMessageBox::Ignore) {
-        ai_reply->ignoreSslErrors();  // Use ai_reply here
+        ai_reply->ignoreSslErrors();
     }
 
     qDebug() << "sslErrors";
 }
-
 
 void MainWindow::httpSpeechFinished()
 {
@@ -352,19 +418,24 @@ void MainWindow::httpSpeechReadyRead()
     QString strFromJson = QJsonDocument(data).toJson(QJsonDocument::Compact).toStdString().c_str();
     qDebug() << strFromJson;
     m_recording = false;
+
     auto error = data["error"]["message"];
 
     if (error.isUndefined()) {
         auto command = data["results"][0]["alternatives"][0]["transcript"].toString();
-        if (command.size() > 0){
 
-            //           auto translatedText = translateClient->translateText(command, langpair);
+        if (command.size() > 0) {
+            // Basit: Direk çevir
+            appendText("📝 " + command);
             translateText(command, langpair);
         }
-        else
-        {
-            appendText(strFromJson);
+        else {
+            // Boş sonuç
+            appendText("⚠️ " + tr("Ses algılanamadı, tekrar deneyin"));
         }
+    } else {
+        // Hata
+        appendText("❌ " + tr("Hata: ") + error.toString());
     }
 }
 
@@ -414,7 +485,7 @@ void MainWindow::speechVoice()
 
     this->urlSpeech.setQuery("key=" + speechApiKey);
     speech_reply.reset(qnam->post(QNetworkRequest(urlSpeech), data.toJson(QJsonDocument::Compact)));
-    
+
     connect(speech_reply.get(), &QNetworkReply::sslErrors, this, &MainWindow::sslErrors);
     connect(speech_reply.get(), &QNetworkReply::finished, this, &MainWindow::httpSpeechFinished);
     connect(speech_reply.get(), &QIODevice::readyRead, this, &MainWindow::httpSpeechReadyRead);
@@ -433,7 +504,7 @@ void MainWindow::httpTranslateReadyRead()
             if (responseDataObject.contains("translatedText") && responseDataObject["translatedText"].isString()) {
                 QString translatedText = responseDataObject["translatedText"].toString();
                 qDebug() << "Translated Text: " << translatedText;
-                appendText(translatedText);               
+                appendText("💬 " + translatedText);
                 m_speech->say(translatedText);
             }
         }
@@ -463,7 +534,7 @@ void MainWindow::translateText(QString text, QString langpair)
     request.setRawHeader("X-RapidAPI-Host", translateHost.toStdString().c_str());
     request.setRawHeader("X-RapidAPI-Key", translateApiKey.toStdString().c_str());
     translate_reply.reset(qnam->get(request));
-    
+
     connect(translate_reply.get(), &QNetworkReply::sslErrors, this, &MainWindow::sslErrors);
     connect(translate_reply.get(), &QNetworkReply::finished, this, &MainWindow::httpTranslateFinished);
     connect(translate_reply.get(), &QIODevice::readyRead, this, &MainWindow::httpTranslateReadyRead);
@@ -476,7 +547,6 @@ void MainWindow::getFromAi(QString text)
     query.addQueryItem("user_id", "420");
     this->urlAi.setQuery(query);
 
-    // Set up the request headers
     QNetworkRequest request(this->urlAi);
     request.setRawHeader("Authorization", "q9Oh7Lg7J0Hd");
     request.setRawHeader("X-Rapidapi-Host", aiHost.toStdString().c_str());
@@ -582,20 +652,35 @@ void MainWindow::onStateChanged(QMediaRecorder::RecorderState state)
 void MainWindow::onSpeechStateChanged(QTextToSpeech::State state)
 {
     QString statusMessage;
+    QString stateString;
 
-    if (state == QTextToSpeech::Speaking) {
-        statusMessage = tr("Speech started...");
-        m_speaking = true;
-    } else if (state == QTextToSpeech::Ready)
-    {
-        m_speaking = false;
-        statusMessage = tr("Speech stopped...");
+    switch(state) {
+        case QTextToSpeech::Ready:
+            stateString = "Ready";
+            statusMessage = tr("Speech stopped...");
+            m_speaking = false;
+            m_lastSpeechEndTime = QDateTime::currentDateTime();
+            appendText("🔇 TTS bitti");
+            break;
+        case QTextToSpeech::Speaking:
+            stateString = "Speaking";
+            statusMessage = tr("Speech started...");
+            m_speaking = true;
+            appendText("🔊 TTS başladı");
+            break;
+        case QTextToSpeech::Paused:
+            stateString = "Paused";
+            statusMessage = tr("Speech paused...");
+            break;
+        case QTextToSpeech::Error:
+            stateString = "Error";
+            statusMessage = tr("Speech error!");
+            appendText("❌ TTS HATASI!");
+            qDebug() << "TTS Error occurred!";
+            break;
     }
-    else if (state == QTextToSpeech::Paused)
-        statusMessage = tr("Speech paused...");
-    else
-        statusMessage = tr("Speech error!");
 
+    qDebug() << ">>> TTS State Changed to:" << stateString;
     ui->statusbar->showMessage(statusMessage);
 }
 
@@ -632,6 +717,7 @@ void MainWindow::toggleRecord()
             m_audioRecorder->record();
         }
 #endif
+        // Kullanıcının seçtiği süre
         this->recordDuration = boxValue(ui->recordTimeBox).toInt();
     }
     else
@@ -648,13 +734,13 @@ void MainWindow::toggleLanguage()
     if(langpair == "tr|en")
     {
         langpair = "en|tr";
-        languageCode = "EN";
+        languageCode = "en-US";
         ui->languageButton->setText("en|tr");
     }
     else
     {
         langpair = "tr|en";
-        languageCode = "TR";
+        languageCode = "tr-TR";
         ui->languageButton->setText("tr|en");
     }
     setSpeechEngine();
@@ -691,9 +777,12 @@ QList<qreal> MainWindow::getBufferLevels(const QAudioBuffer &buffer)
             qreal amplifiedValue = value * 10;
             if (amplifiedValue >= m_vox_sensitivity)
             {
-                if (!m_recording && !m_speaking)
+                // Check if enough time has passed since speech ended
+                bool cooldownPassed = m_lastSpeechEndTime.msecsTo(QDateTime::currentDateTime()) > SPEECH_COOLDOWN_MS;
+
+                if (!m_recording && !m_speaking && cooldownPassed)
                 {
-                    qDebug() << amplifiedValue << m_recording;
+                    qDebug() << "VOX triggered:" << amplifiedValue;
                     toggleRecord();
                 }
             }
@@ -727,7 +816,7 @@ void MainWindow::processBuffer(const QAudioBuffer& buffer)
 }
 
 #ifdef __APPLE__
-void SpeechTranslate::startRecording()
+void MainWindow::startRecording()
 {
     QString filePath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/record.wav";
     ui->statusbar->showMessage(tr("Recording to %1").arg(filePath));
@@ -749,7 +838,6 @@ void SpeechTranslate::startRecording()
         return;
     }
 
-    // Prepare the audio file for writing
     AudioStreamBasicDescription audioFormat;
     audioFormat.mSampleRate = sampleRate;
     audioFormat.mFormatID = kAudioFormatLinearPCM;
@@ -773,17 +861,13 @@ void SpeechTranslate::startRecording()
     }
 
     qDebug() << "File path:" << filePath;
-
-    // Release the CFURLRef
     CFRelease(fileURL);
 }
-#endif
-#ifdef __APPLE__
-void SpeechTranslate::stopRecording()
+
+void MainWindow::stopRecording()
 {
     if (audioFile != nullptr) {
         if (fileURL != nullptr) {
-            // Log file size after closing
             QFileInfo fileInfo(QString::fromCFString(CFURLCopyFileSystemPath(fileURL, kCFURLPOSIXPathStyle)));
             qDebug() << "Audio file closed. File size:" << fileInfo.size() << " bytes";
         } else {
@@ -794,14 +878,12 @@ void SpeechTranslate::stopRecording()
         speechVoice();
     }
 }
-#endif
-#ifdef __APPLE__
-void SpeechTranslate::writeAudioToFile(const QByteArray& buffer)
+
+void MainWindow::writeAudioToFile(const QByteArray& buffer)
 {
-    // Write audio data to the file
     const short* audioData = reinterpret_cast<const short*>(buffer.constData());
     UInt32 numBytesToWrite = buffer.size();
-    off_t offset = 0;  // Set the offset to your desired position
+    off_t offset = 0;
 
     OSStatus status = AudioFileWriteBytes(audioFile,
                                           false,
@@ -812,8 +894,6 @@ void SpeechTranslate::writeAudioToFile(const QByteArray& buffer)
     if (status != noErr)
     {
         qDebug() << "Error writing audio file. Error code: " << status;
-
-        // Log additional information if available
         CFStringRef description = CFCopyDescription(CFURLCopyFileSystemPath(fileURL, kCFURLPOSIXPathStyle));
         if (description) {
             qDebug() << "File path:" << QString::fromCFString(description);
@@ -826,18 +906,15 @@ void SpeechTranslate::writeAudioToFile(const QByteArray& buffer)
         ui->statusbar->showMessage(tr(msg.toStdString().c_str()));
     }
 }
-#endif
-#ifdef __APPLE__
-bool SpeechTranslate::isBufferFull() const
+
+bool MainWindow::isBufferFull() const
 {
     qint64 bufferSize = accumulatedBuffer.size() / (sizeof(short) * channelCount);
     qint64 durationMilliseconds = (bufferSize * 1000) / sampleRate;
     return durationMilliseconds >= this->recordDuration;
-    //    return accumulatedBuffer.size() >= 1 * 1024 * 1024; // 1MB
 }
-#endif
-#ifdef __APPLE__
-void SpeechTranslate::recordBuffer(const QByteArray& buffer)
+
+void MainWindow::recordBuffer(const QByteArray& buffer)
 {
     if (m_recording)
     {
@@ -848,10 +925,8 @@ void SpeechTranslate::recordBuffer(const QByteArray& buffer)
             ui->recordButton->setText(tr("Stop"));
         }
 
-        // Accumulate data in the buffer
         accumulatedBuffer.append(buffer);
 
-        // Check if the buffer is full
         if (isBufferFull()) {
             m_recording = false;
         }
@@ -893,7 +968,6 @@ void MainWindow::on_micVolumeSlider_valueChanged(int value)
     ui->labelMicLevelInfo->setText(QString::number(m_captureSession.audioInput()->volume() * 100, 'f', 0) + "%");
 }
 
-
 void MainWindow::on_speechVolumeSlider_valueChanged(int value)
 {
     qreal linearVolume = QAudio::convertVolume(value / qreal(100),
@@ -902,7 +976,6 @@ void MainWindow::on_speechVolumeSlider_valueChanged(int value)
     m_speech->setVolume(linearVolume);
     ui->labelSpeechLevelInfo->setText(QString::number(m_speech->volume() * 100, 'f', 0) + "%");
 }
-
 
 void MainWindow::on_voxSensivitySlider_valueChanged(int value)
 {
@@ -917,4 +990,3 @@ void MainWindow::on_languageButton_clicked()
 {
     toggleLanguage();
 }
-

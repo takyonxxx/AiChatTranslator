@@ -61,7 +61,6 @@ unix:!mac:!android {
 HEADERS = \
     audiolevel.h \
     constants.h \
-    gpt3client.h \
     mainwindow.h \
     translateclient.h
 
