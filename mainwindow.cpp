@@ -1,8 +1,6 @@
 #include "mainwindow.h"
 #include "audiolevel.h"
-
-#include "ui_speechtranslate.h"
-
+#include "ui_mainwindow.h"
 #include <qmediadevices.h>
 #include <qmediaformat.h>
 #include <qaudiodevice.h>
@@ -32,7 +30,7 @@ static QVariant boxValue(const QComboBox *box)
 }
 
 MainWindow::MainWindow()
-    : ui(new Ui::SpeechTranslate)
+    : ui(new Ui::MainWindow)
 {
 #ifdef __aarch64__
     requestMicrophonePermission();
@@ -124,10 +122,21 @@ void MainWindow::initializeAi()
     m_speech = new QTextToSpeech(this);
 #endif
 
-    // ✅ 2. State change signal'ını HEMEN bağla
-    connect(m_speech, &QTextToSpeech::stateChanged, this, &MainWindow::onSpeechStateChanged);
+    qDebug() << "=== All Available TTS Voices ===";
+    QVector<QLocale> allLocales = m_speech->availableLocales();
+    for (const QLocale &locale : allLocales) {
+        m_speech->setLocale(locale);
+        QVector<QVoice> voices = m_speech->availableVoices();
+        qDebug() << "\nLocale:" << locale.name() << "(" << QLocale::languageToString(locale.language()) << ")";
+        qDebug() << "  Voices:" << voices.size();
+        for (const QVoice &voice : voices) {
+            qDebug() << "    -" << voice.name() << "|" << QVoice::genderName(voice.gender());
+        }
+    }
+    qDebug() << "=== End of Voice List ===\n";
 
-    qDebug() << "TTS Initial State:" << m_speech->state();
+    connect(m_speech, &QTextToSpeech::stateChanged, this, &MainWindow::onSpeechStateChanged);
+    connect(m_speech, &QTextToSpeech::localeChanged, this, &MainWindow::localeChanged);
 
     // ✅ 3. Locale ve Voice ayarlarını ÖNCE yap
     langpair = "tr|en";
@@ -175,6 +184,9 @@ void MainWindow::initializeAi()
         }
         m_speech->setVoice(selectedVoice);
     }
+
+    connect(ui->language, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
+            this, &MainWindow::languageSelected);
 
     // ✅ 9. TTS parametrelerini ayarla
     m_speech->setPitch(0.0);
@@ -293,15 +305,10 @@ void MainWindow::setOutputFile()
 
 void MainWindow::setSpeechEngine()
 {
-    // ✅ Sadece UI componentlerini doldur, TTS zaten ayarlandı
-    connect(m_speech, &QTextToSpeech::localeChanged, this, &MainWindow::localeChanged);
-    // stateChanged zaten bağlı, tekrar bağlama!
-    connect(ui->language, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &MainWindow::languageSelected);
-
+    ui->language->blockSignals(true);
     ui->language->clear();
 
     const QVector<QLocale> locales = m_speech->availableLocales();
-    QLocale current = m_speech->locale();
     int counter = 0;
 
     for (const QLocale &locale : locales) {
@@ -323,6 +330,7 @@ void MainWindow::setSpeechEngine()
     }
 
     ui->language->setCurrentIndex(m_current_language_index);
+    ui->language->blockSignals(false);
 }
 
 void MainWindow::languageSelected(int language)
@@ -733,17 +741,59 @@ void MainWindow::toggleLanguage()
 {
     if(langpair == "tr|en")
     {
+        // Şimdi EN->TR moduna geçiyoruz
         langpair = "en|tr";
-        languageCode = "en-US";
-        ui->languageButton->setText("en|tr");
+        languageCode = "en-US";  // Speech input: English
+        ui->languageButton->setText("EN→TR");
+
+        // ✅ TTS output: Turkish
+        setTTSLanguage(QLocale::Turkish, QLocale::Turkey);
+
+        appendText("🔄 Mod: İngilizce dinleme → Türkçe konuşma");
+        m_speech->say("İngilizce dinliyorum");
     }
     else
     {
+        // Şimdi TR->EN moduna geçiyoruz
         langpair = "tr|en";
-        languageCode = "tr-TR";
-        ui->languageButton->setText("tr|en");
+        languageCode = "tr-TR";  // Speech input: Turkish
+        ui->languageButton->setText("TR→EN");
+
+        // ✅ TTS output: English
+        setTTSLanguage(QLocale::English, QLocale::UnitedStates);
+
+        appendText("🔄 Mode: Turkish listening → English speaking");
+        m_speech->say("Listening in Turkish");
     }
-    setSpeechEngine();
+
+    setSpeechEngine();  // UI'ı güncelle
+}
+
+void MainWindow::setTTSLanguage(QLocale::Language language, QLocale::Country country)
+{
+    QLocale newLocale(language, country);
+    m_speech->setLocale(newLocale);
+
+    qDebug() << "TTS Locale changed to:" << newLocale.name();
+
+    // En iyi voice'u seç
+    QVector<QVoice> voices = m_speech->availableVoices();
+    qDebug() << "Available voices:" << voices.size();
+
+    if (!voices.isEmpty()) {
+        QVoice selectedVoice = voices[0];
+
+        // Female voice tercih et
+        for (const QVoice &voice : voices) {
+            if (QVoice::genderName(voice.gender()).contains("Female")) {
+                selectedVoice = voice;
+                break;
+            }
+        }
+
+        m_speech->setVoice(selectedVoice);
+        qDebug() << "Selected voice:" << selectedVoice.name();
+    }
 }
 
 void MainWindow::displayErrorMessage()

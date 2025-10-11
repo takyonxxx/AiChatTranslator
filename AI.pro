@@ -1,6 +1,6 @@
 TEMPLATE = app
 QT += core gui multimedia network texttospeech widgets
-TARGET = SpeechTranslator
+TARGET = AI
 CONFIG += c++17
 
 # Android-specific configurations

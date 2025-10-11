@@ -31,7 +31,7 @@
 
 
 QT_BEGIN_NAMESPACE
-namespace Ui { class SpeechTranslate; }
+namespace Ui { class MainWindow; }
 class QAudioBuffer;
 QT_END_NAMESPACE
 
@@ -73,6 +73,7 @@ public slots:
 private slots:
     void toggleRecord();
     void toggleLanguage();
+    void setTTSLanguage(QLocale::Language language, QLocale::Country country);
     void speechVoice();
     void translateText(QString, QString);
     void getFromAi(QString);
@@ -175,7 +176,7 @@ private:
     QDateTime m_lastSpeechEndTime;
     const int SPEECH_COOLDOWN_MS = 1500;  // 1.5 seconds cooldown after speech
 
-    Ui::SpeechTranslate *ui = nullptr;
+    Ui::MainWindow *ui = nullptr;
 
 };
 
