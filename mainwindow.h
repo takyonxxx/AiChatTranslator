@@ -1,5 +1,5 @@
-#ifndef SPEECHTRANSLATE_H
-#define SPEECHTRANSLATE_H
+#ifndef MAINWINDOW_H
+#define MAINWINDOW_H
 
 #include <QMainWindow>
 #include <QtWidgets>
@@ -37,13 +37,13 @@ QT_END_NAMESPACE
 
 class AudioLevel;
 
-class SpeechTranslate : public QMainWindow
+class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    SpeechTranslate();
-    ~SpeechTranslate();
+    MainWindow();
+    ~MainWindow();
 
     QByteArray generateSineWave(int durationInSeconds, int sampleRate, int channelCount, double frequency) {
         const int numFrames = durationInSeconds * sampleRate;
@@ -171,8 +171,12 @@ private:
     const QString fileName = "record";
     QString ext = "";
     QFile file;
+
+    QDateTime m_lastSpeechEndTime;
+    const int SPEECH_COOLDOWN_MS = 1000;
+
     Ui::SpeechTranslate *ui = nullptr;
 
 };
 
-#endif // SPEECHTRANSLATE_H
+#endif // MAINWINDOW_H

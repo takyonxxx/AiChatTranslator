@@ -1,4 +1,4 @@
-#include "speechtranslate.h"
+#include "mainwindow.h"
 
 #include <QApplication>
 
@@ -6,7 +6,7 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    SpeechTranslate ai;
+    MainWindow ai;
     ai.show();
 
     return app.exec();

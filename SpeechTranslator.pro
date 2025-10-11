@@ -62,18 +62,18 @@ HEADERS = \
     audiolevel.h \
     constants.h \
     gpt3client.h \
-    speechtranslate.h \
+    mainwindow.h \
     translateclient.h
 
 # Source files
 SOURCES = \
     main.cpp \
     audiolevel.cpp \
-    speechtranslate.cpp
+    mainwindow.cpp
 
 # Forms
 FORMS += \
-    speechtranslate.ui
+    mainwindow.ui
 
 # Resources
 RESOURCES += \

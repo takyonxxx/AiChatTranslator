@@ -1,4 +1,4 @@
-#include "speechtranslate.h"
+#include "mainwindow.h"
 #include "audiolevel.h"
 
 #include "ui_speechtranslate.h"
@@ -31,7 +31,7 @@ static QVariant boxValue(const QComboBox *box)
     return box->itemData(idx);
 }
 
-SpeechTranslate::SpeechTranslate()
+MainWindow::MainWindow()
     : ui(new Ui::SpeechTranslate)
 {
 #ifdef __aarch64__
@@ -41,7 +41,7 @@ SpeechTranslate::SpeechTranslate()
 #endif
 }
 
-SpeechTranslate::~SpeechTranslate()
+MainWindow::~MainWindow()
 {
     delete m_speech;
     delete m_audioOutput;
@@ -52,7 +52,7 @@ SpeechTranslate::~SpeechTranslate()
     delete qnam;
 }
 
-void SpeechTranslate::initializeAi()
+void MainWindow::initializeAi()
 {
     ui->setupUi(this);
 
@@ -81,10 +81,10 @@ void SpeechTranslate::initializeAi()
 
 #ifndef __APPLE__
     m_audioRecorder = new QMediaRecorder(this);
-    connect(m_audioRecorder, &QMediaRecorder::durationChanged, this, &SpeechTranslate::updateProgress);
-    connect(m_audioRecorder, &QMediaRecorder::recorderStateChanged, this, &SpeechTranslate::onStateChanged);
-    connect(m_audioRecorder, &QMediaRecorder::errorOccurred, this, &SpeechTranslate::displayErrorMessage);
-    connect(m_audioRecorder, &QMediaRecorder::errorChanged, this, &SpeechTranslate::displayErrorMessage);
+    connect(m_audioRecorder, &QMediaRecorder::durationChanged, this, &MainWindow::updateProgress);
+    connect(m_audioRecorder, &QMediaRecorder::recorderStateChanged, this, &MainWindow::onStateChanged);
+    connect(m_audioRecorder, &QMediaRecorder::errorOccurred, this, &MainWindow::displayErrorMessage);
+    connect(m_audioRecorder, &QMediaRecorder::errorChanged, this, &MainWindow::displayErrorMessage);
 #endif
 
     QAudioDevice outputDevice;
@@ -100,7 +100,7 @@ void SpeechTranslate::initializeAi()
 
     if (outputDevice.isFormatSupported(m_format)) {
         m_audioOutput = new QAudioSink(outputDevice, m_format, this);
-        connect(m_audioOutput,&QAudioSink::stateChanged, this, &SpeechTranslate::handleAudioStateChanged);
+        connect(m_audioOutput,&QAudioSink::stateChanged, this, &MainWindow::handleAudioStateChanged);
     }
 
     m_audioInput = new QAudioInput(this);
@@ -114,13 +114,13 @@ void SpeechTranslate::initializeAi()
         auto name = device.description();
         ui->audioInputDeviceBox->addItem(name, QVariant::fromValue(device));
     }
-    connect(ui->audioInputDeviceBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SpeechTranslate::inputDeviceChanged);
+    connect(ui->audioInputDeviceBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::inputDeviceChanged);
 
     for (auto &device: QMediaDevices::audioOutputs()) {
         auto name = device.description();
         ui->audioOutputDeviceBox->addItem(name, QVariant::fromValue(device));
     }
-    connect(ui->audioOutputDeviceBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SpeechTranslate::outputDeviceChanged);
+    connect(ui->audioOutputDeviceBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::outputDeviceChanged);
 
     //record times
     ui->recordTimeBox->addItem(QStringLiteral("1000"), QVariant(1000));
@@ -142,7 +142,7 @@ void SpeechTranslate::initializeAi()
     m_speech->say("Lütfen, kayıt düğmesine basınız");
 }
 
-void SpeechTranslate::requestMicrophonePermission()
+void MainWindow::requestMicrophonePermission()
 {
     #ifdef __aarch64__
     if (QNativeInterface::QAndroidApplication::sdkVersion() >= 23) {
@@ -186,7 +186,7 @@ void SpeechTranslate::requestMicrophonePermission()
 #endif
 }
 
-void SpeechTranslate::handleAudioStateChanged(QAudio::State newState)
+void MainWindow::handleAudioStateChanged(QAudio::State newState)
 {
     qDebug() << newState;
 
@@ -208,7 +208,7 @@ void SpeechTranslate::handleAudioStateChanged(QAudio::State newState)
     }
 }
 
-void SpeechTranslate::setOutputFile()
+void MainWindow::setOutputFile()
 {
     // Get the writable location for AppLocalData
     QString filePath = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
@@ -226,12 +226,12 @@ void SpeechTranslate::setOutputFile()
     m_outputLocationSet = true;
 }
 
-void SpeechTranslate::setSpeechEngine()
+void MainWindow::setSpeechEngine()
 {
     m_speech->setPitch(0);
-    connect(m_speech, &QTextToSpeech::localeChanged, this, &SpeechTranslate::localeChanged);
-    connect(m_speech, &QTextToSpeech::stateChanged, this, &SpeechTranslate::onSpeechStateChanged);
-    connect(ui->language, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &SpeechTranslate::languageSelected);
+    connect(m_speech, &QTextToSpeech::localeChanged, this, &MainWindow::localeChanged);
+    connect(m_speech, &QTextToSpeech::stateChanged, this, &MainWindow::onSpeechStateChanged);
+    connect(ui->language, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &MainWindow::languageSelected);
     ui->language->clear();
     // Populate the languages combobox before connecting its signal.
     const QVector<QLocale> locales = m_speech->availableLocales();
@@ -258,19 +258,19 @@ void SpeechTranslate::setSpeechEngine()
     ui->language->setCurrentIndex(m_current_language_index);
 }
 
-void SpeechTranslate::languageSelected(int language)
+void MainWindow::languageSelected(int language)
 {
     QLocale locale = ui->language->itemData(language).toLocale();
     m_speech->setLocale(locale);
     localeChanged(locale);
 }
 
-void SpeechTranslate::localeChanged(const QLocale &locale)
+void MainWindow::localeChanged(const QLocale &locale)
 {
     QVariant localeVariant(locale);
     ui->language->setCurrentIndex(ui->language->findData(localeVariant));
 
-    disconnect(ui->voice, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &SpeechTranslate::voiceSelected);
+    disconnect(ui->voice, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &MainWindow::voiceSelected);
     ui->voice->clear();
     int counter=0;
 
@@ -287,16 +287,16 @@ void SpeechTranslate::localeChanged(const QLocale &locale)
         }
         counter++;
     }
-    connect(ui->voice, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &SpeechTranslate::voiceSelected);
+    connect(ui->voice, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &MainWindow::voiceSelected);
     ui->voice->setCurrentIndex(m_current_voice_index);
 }
 
-void SpeechTranslate::voiceSelected(int index)
+void MainWindow::voiceSelected(int index)
 {
     m_speech->setVoice(m_voices.at(index));
 }
 
-void SpeechTranslate::sslErrors(const QList<QSslError> &errors)
+void MainWindow::sslErrors(const QList<QSslError> &errors)
 {
     QString errorString;
     for (const QSslError &error : errors) {
@@ -315,7 +315,7 @@ void SpeechTranslate::sslErrors(const QList<QSslError> &errors)
 }
 
 
-void SpeechTranslate::httpSpeechFinished()
+void MainWindow::httpSpeechFinished()
 {
     if(speech_reply->error() != QNetworkReply::NoError)
     {
@@ -325,7 +325,7 @@ void SpeechTranslate::httpSpeechFinished()
     speech_reply.reset();
 }
 
-void SpeechTranslate::httpTranslateFinished()
+void MainWindow::httpTranslateFinished()
 {
     if(translate_reply->error() != QNetworkReply::NoError)
     {
@@ -335,7 +335,7 @@ void SpeechTranslate::httpTranslateFinished()
     translate_reply.reset();
 }
 
-void SpeechTranslate::httpAiFinished()
+void MainWindow::httpAiFinished()
 {
     if(ai_reply->error() != QNetworkReply::NoError)
     {
@@ -345,7 +345,7 @@ void SpeechTranslate::httpAiFinished()
     ai_reply.reset();
 }
 
-void SpeechTranslate::httpSpeechReadyRead()
+void MainWindow::httpSpeechReadyRead()
 {
     auto data = QJsonDocument::fromJson(speech_reply->readAll());
 
@@ -368,7 +368,7 @@ void SpeechTranslate::httpSpeechReadyRead()
     }
 }
 
-void SpeechTranslate::speechVoice()
+void MainWindow::speechVoice()
 {
     QString filePath = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
     QDir folderDir(filePath);
@@ -415,12 +415,12 @@ void SpeechTranslate::speechVoice()
     this->urlSpeech.setQuery("key=" + speechApiKey);
     speech_reply.reset(qnam->post(QNetworkRequest(urlSpeech), data.toJson(QJsonDocument::Compact)));
     
-    connect(speech_reply.get(), &QNetworkReply::sslErrors, this, &SpeechTranslate::sslErrors);
-    connect(speech_reply.get(), &QNetworkReply::finished, this, &SpeechTranslate::httpSpeechFinished);
-    connect(speech_reply.get(), &QIODevice::readyRead, this, &SpeechTranslate::httpSpeechReadyRead);
+    connect(speech_reply.get(), &QNetworkReply::sslErrors, this, &MainWindow::sslErrors);
+    connect(speech_reply.get(), &QNetworkReply::finished, this, &MainWindow::httpSpeechFinished);
+    connect(speech_reply.get(), &QIODevice::readyRead, this, &MainWindow::httpSpeechReadyRead);
 }
 
-void SpeechTranslate::httpTranslateReadyRead()
+void MainWindow::httpTranslateReadyRead()
 {
     QString clearText{};
     QString strReply = translate_reply->readAll().toStdString().c_str();
@@ -440,7 +440,7 @@ void SpeechTranslate::httpTranslateReadyRead()
     }
 }
 
-void SpeechTranslate::httpAiReadyRead()
+void MainWindow::httpAiReadyRead()
 {
     auto data = QJsonDocument::fromJson(ai_reply->readAll());
 
@@ -448,7 +448,7 @@ void SpeechTranslate::httpAiReadyRead()
     qDebug() << strFromJson;
 }
 
-void SpeechTranslate::translateText(QString text, QString langpair)
+void MainWindow::translateText(QString text, QString langpair)
 {
     QUrlQuery query;
     query.addQueryItem("langpair", langpair);
@@ -464,12 +464,12 @@ void SpeechTranslate::translateText(QString text, QString langpair)
     request.setRawHeader("X-RapidAPI-Key", translateApiKey.toStdString().c_str());
     translate_reply.reset(qnam->get(request));
     
-    connect(translate_reply.get(), &QNetworkReply::sslErrors, this, &SpeechTranslate::sslErrors);
-    connect(translate_reply.get(), &QNetworkReply::finished, this, &SpeechTranslate::httpTranslateFinished);
-    connect(translate_reply.get(), &QIODevice::readyRead, this, &SpeechTranslate::httpTranslateReadyRead);
+    connect(translate_reply.get(), &QNetworkReply::sslErrors, this, &MainWindow::sslErrors);
+    connect(translate_reply.get(), &QNetworkReply::finished, this, &MainWindow::httpTranslateFinished);
+    connect(translate_reply.get(), &QIODevice::readyRead, this, &MainWindow::httpTranslateReadyRead);
 }
 
-void SpeechTranslate::getFromAi(QString text)
+void MainWindow::getFromAi(QString text)
 {
     QUrlQuery query;
     query.addQueryItem("message", text);
@@ -485,12 +485,12 @@ void SpeechTranslate::getFromAi(QString text)
     ai_reply.reset(qnam->get(request));
     qDebug() << this->urlAi;
 
-    connect(ai_reply.get(), &QNetworkReply::sslErrors, this, &SpeechTranslate::sslErrors);
-    connect(ai_reply.get(), &QNetworkReply::finished, this, &SpeechTranslate::httpAiFinished);
-    connect(ai_reply.get(), &QIODevice::readyRead, this, &SpeechTranslate::httpAiReadyRead);
+    connect(ai_reply.get(), &QNetworkReply::sslErrors, this, &MainWindow::sslErrors);
+    connect(ai_reply.get(), &QNetworkReply::finished, this, &MainWindow::httpAiFinished);
+    connect(ai_reply.get(), &QIODevice::readyRead, this, &MainWindow::httpAiReadyRead);
 }
 
-void SpeechTranslate::inputDeviceChanged(int index)
+void MainWindow::inputDeviceChanged(int index)
 {
     const QAudioDevice &inputDevice = ui->audioInputDeviceBox->itemData(index).value<QAudioDevice>();
 
@@ -517,26 +517,26 @@ void SpeechTranslate::inputDeviceChanged(int index)
     }
 
     ioInputDevice = m_audioInputSource->start();
-    connect(ioInputDevice, &QIODevice::readyRead, this, &SpeechTranslate::micBufferReady);
+    connect(ioInputDevice, &QIODevice::readyRead, this, &MainWindow::micBufferReady);
 
     appendText("Default microphone (" + inputDevice.description() + ')');
 }
 
-void SpeechTranslate::outputDeviceChanged(int index)
+void MainWindow::outputDeviceChanged(int index)
 {
     if(m_audioOutput)
     {
-        disconnect(m_audioOutput,&QAudioSink::stateChanged, this, &SpeechTranslate::handleAudioStateChanged);
+        disconnect(m_audioOutput,&QAudioSink::stateChanged, this, &MainWindow::handleAudioStateChanged);
         const QAudioDevice &outputDevice = ui->audioOutputDeviceBox->itemData(index).value<QAudioDevice>();
         if (outputDevice.isFormatSupported(m_format)) {
             m_audioOutput = new QAudioSink(outputDevice, m_format, this);
-            connect(m_audioOutput,&QAudioSink::stateChanged, this, &SpeechTranslate::handleAudioStateChanged);
+            connect(m_audioOutput,&QAudioSink::stateChanged, this, &MainWindow::handleAudioStateChanged);
         }
         appendText("Default speaker (" + outputDevice.description() + ')');
     }
 }
 
-void SpeechTranslate::updateProgress(qint64 duration)
+void MainWindow::updateProgress(qint64 duration)
 {
     if (m_audioRecorder->error() != QMediaRecorder::NoError)
         return;
@@ -554,7 +554,7 @@ void SpeechTranslate::updateProgress(qint64 duration)
     }
 }
 
-void SpeechTranslate::onStateChanged(QMediaRecorder::RecorderState state)
+void MainWindow::onStateChanged(QMediaRecorder::RecorderState state)
 {
     QString statusMessage;
 
@@ -579,7 +579,7 @@ void SpeechTranslate::onStateChanged(QMediaRecorder::RecorderState state)
         ui->statusbar->showMessage(statusMessage);
 }
 
-void SpeechTranslate::onSpeechStateChanged(QTextToSpeech::State state)
+void MainWindow::onSpeechStateChanged(QTextToSpeech::State state)
 {
     QString statusMessage;
 
@@ -599,7 +599,7 @@ void SpeechTranslate::onSpeechStateChanged(QTextToSpeech::State state)
     ui->statusbar->showMessage(statusMessage);
 }
 
-QMediaFormat SpeechTranslate::selectedMediaFormat() const
+QMediaFormat MainWindow::selectedMediaFormat() const
 {
     QMediaFormat format;
     format.resolveForEncoding(QMediaFormat::NoFlags);
@@ -608,12 +608,12 @@ QMediaFormat SpeechTranslate::selectedMediaFormat() const
     return format;
 }
 
-void SpeechTranslate::appendText(QString text)
+void MainWindow::appendText(QString text)
 {
     ui->textTerminal->append(text);
 }
 
-void SpeechTranslate::toggleRecord()
+void MainWindow::toggleRecord()
 {
     if(!m_recording)
     {
@@ -643,7 +643,7 @@ void SpeechTranslate::toggleRecord()
     }
 }
 
-void SpeechTranslate::toggleLanguage()
+void MainWindow::toggleLanguage()
 {
     if(langpair == "tr|en")
     {
@@ -660,20 +660,20 @@ void SpeechTranslate::toggleLanguage()
     setSpeechEngine();
 }
 
-void SpeechTranslate::displayErrorMessage()
+void MainWindow::displayErrorMessage()
 {
     ui->statusbar->showMessage(m_audioRecorder->errorString());
     appendText(m_audioRecorder->errorString());
     m_recording = false;
 }
 
-void SpeechTranslate::clearAudioLevels()
+void MainWindow::clearAudioLevels()
 {
     for (auto m_audioLevel : qAsConst(m_audioLevels))
         m_audioLevel->setLevel(0);
 }
 
-QList<qreal> SpeechTranslate::getBufferLevels(const QAudioBuffer &buffer)
+QList<qreal> MainWindow::getBufferLevels(const QAudioBuffer &buffer)
 {
     QList<qreal> values;
     auto format = buffer.format();
@@ -705,7 +705,7 @@ QList<qreal> SpeechTranslate::getBufferLevels(const QAudioBuffer &buffer)
     return max_values;
 }
 
-void SpeechTranslate::micBufferReady()
+void MainWindow::micBufferReady()
 {
     qint64 bytesAvailable = m_audioInputSource->bytesAvailable();
     if (bytesAvailable <= 0) {
@@ -719,7 +719,7 @@ void SpeechTranslate::micBufferReady()
 #endif
 }
 
-void SpeechTranslate::processBuffer(const QAudioBuffer& buffer)
+void MainWindow::processBuffer(const QAudioBuffer& buffer)
 {
     QList<qreal> levels = getBufferLevels(buffer);
     for (int i = 0; i < levels.count(); ++i)
@@ -868,22 +868,22 @@ void SpeechTranslate::recordBuffer(const QByteArray& buffer)
 }
 #endif
 
-void SpeechTranslate::on_exitButton_clicked()
+void MainWindow::on_exitButton_clicked()
 {
     QApplication::quit();
 }
 
-void SpeechTranslate::on_clearButton_clicked()
+void MainWindow::on_clearButton_clicked()
 {
     ui->textTerminal->clear();
 }
 
-void SpeechTranslate::on_recordButton_clicked()
+void MainWindow::on_recordButton_clicked()
 {
     toggleRecord();
 }
 
-void SpeechTranslate::on_micVolumeSlider_valueChanged(int value)
+void MainWindow::on_micVolumeSlider_valueChanged(int value)
 {
     qreal linearVolume = QAudio::convertVolume(value / qreal(100),
                                                QAudio::LogarithmicVolumeScale,
@@ -894,7 +894,7 @@ void SpeechTranslate::on_micVolumeSlider_valueChanged(int value)
 }
 
 
-void SpeechTranslate::on_speechVolumeSlider_valueChanged(int value)
+void MainWindow::on_speechVolumeSlider_valueChanged(int value)
 {
     qreal linearVolume = QAudio::convertVolume(value / qreal(100),
                                                QAudio::LogarithmicVolumeScale,
@@ -904,7 +904,7 @@ void SpeechTranslate::on_speechVolumeSlider_valueChanged(int value)
 }
 
 
-void SpeechTranslate::on_voxSensivitySlider_valueChanged(int value)
+void MainWindow::on_voxSensivitySlider_valueChanged(int value)
 {
     qreal linearVox = QAudio::convertVolume(value / qreal(100),
                                             QAudio::LogarithmicVolumeScale,
@@ -913,7 +913,7 @@ void SpeechTranslate::on_voxSensivitySlider_valueChanged(int value)
     ui->labelVoxSensivityInfo->setText(QString::number(linearVox, 'f', 2));
 }
 
-void SpeechTranslate::on_languageButton_clicked()
+void MainWindow::on_languageButton_clicked()
 {
     toggleLanguage();
 }
